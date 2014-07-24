@@ -6,12 +6,16 @@
 #ifndef __CMDS_H__
 #define __CMDS_H__
 
+#include <vector>
+
+using namespace std;
+
 int getVersion();
 int getCommand();
 int getID();
 int readoutUnprotect();
 int writeUnprotect();
 int readoutProtect();
-int erase();
+int erase(const vector<int>& excludedPages);
 
 #endif

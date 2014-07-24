@@ -2,7 +2,7 @@
 
 #define TIMEOUT (1000)
 
-SerialHandle handle;
+SerialHandle handle = -1;
 
 int uart_send_cmd(uint8_t cmd)
 {

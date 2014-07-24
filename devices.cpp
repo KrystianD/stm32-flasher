@@ -21,3 +21,11 @@ stm32_dev_info_t devices[] =
 void stm32f40xxx_stm32f41xxx_update(stm32_dev_t* dev)
 {
 }
+
+stm32_dev_info_t* findDeviceInfo(const stm32_dev_t& device)
+{
+	for (int i = 0; devices[i].id != 0; i++)
+		if (devices[i].id == device.id)
+			return &devices[i];
+	return 0;
+}

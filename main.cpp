@@ -14,6 +14,9 @@
 #include "devices.h"
 #include "cmds.h"
 
+#include <vector>
+using namespace std;
+
 uint8_t firmwareData[128 * 1024];
 uint32_t firmwareLen;
 
@@ -26,6 +29,8 @@ int doFlash = 0;
 
 const char* devicePath = "/dev/ttyUSB0";
 int speed = B115200;
+
+vector<int> excludedPages;
 
 uint32_t getTicks()
 {
@@ -170,14 +175,17 @@ int main(int argc, char** argv)
 		{ "erase", no_argument,       &doErase, 1 },
 		{ "flash", no_argument,       &doFlash, 1 },
 		
-		{ "device", required_argument, 0, 'd' },
-		{ "speed",  required_argument, 0, 's' },
+		{ "device",        required_argument, 0, 'd' },
+		{ "speed",         required_argument, 0, 's' },
+		{ "exclude-pages", required_argument, 0, 'p' },
+		
 		{ 0, 0, 0, 0 }
 	};
 	
 	for (;;)
 	{
 		int option_index = 0;
+		char *p;
 		int c = getopt_long(argc, argv, "tefd:s:", long_options, &option_index);
 		if (c == -1)
 			break;
@@ -204,6 +212,14 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			break;
+		case 'p':
+			p = strtok(optarg, ",");
+			while (p)
+			{
+				excludedPages.push_back(atoi(p));
+				p = strtok(0, ",");
+			}
+			break;
 		}
 	}
 	
@@ -221,7 +237,7 @@ int main(int argc, char** argv)
 	{
 		if (filePath)
 		{
-			FILE *file = fopen(argv[3], "rb");
+			FILE *file = fopen(filePath, "rb");
 			firmwareLen = fread(firmwareData, 1, sizeof(firmwareData), file);
 			fclose(file);
 			
@@ -258,18 +274,25 @@ int main(int argc, char** argv)
 				break;
 				
 			res = 0;
-			if (doErase)
-				res = erase();
-				
-			if (res == 0 && doFlash)
+			if (doErase && doFlash)
 			{
-				res = programm();
+				res = erase(excludedPages);
 				if (res == 0)
 				{
-					res = run(0x08000000);
+					res = programm();
 					if (res == 0)
-						break;
+					{
+						res = run(0x08000000);
+						if (res == 0)
+							break;
+					}
 				}
+			}
+			else if (doErase)
+			{
+				res = erase(excludedPages);
+				if (res == 0)
+					break;
 			}
 		}
 		usleep(100 * 1000);
@@ -280,6 +303,8 @@ int main(int argc, char** argv)
 		
 	return 0;
 }
+
+
 
 
 

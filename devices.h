@@ -9,13 +9,15 @@ enum ECmd
 	ERASE, WRITE_PROTECT, WRITE_UNPROTECT, READOUT_PROTECT, READOUT_UNPROTECT
 };
 
-class stm32_dev_t
+struct stm32_dev_info_t;
+
+struct stm32_dev_t
 {
-public:
 	uint16_t id;
 	uint8_t version, option1, option2, bootVersion;
 	uint8_t cmds[11];
 	
+	stm32_dev_info_t *info;
 };
 struct stm32_dev_info_t
 {
@@ -27,5 +29,7 @@ struct stm32_dev_info_t
 };
 
 extern stm32_dev_info_t devices[];
+
+stm32_dev_info_t* findDeviceInfo(const stm32_dev_t& device);
 
 #endif

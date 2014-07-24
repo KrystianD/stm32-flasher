@@ -14,6 +14,10 @@
 #include "uart.h"
 #include "devices.h"
 
+#include <algorithm>
+
+using namespace std;
+
 extern stm32_dev_t dev;
 
 int getVersion()
@@ -204,10 +208,9 @@ int writeUnprotect()
 	
 	return 0;
 }
-int erase()
+int erase(const vector<int>& excludedPages)
 {
 	int res;
-	
 	
 	if (dev.cmds[ERASE] == 0x44)
 	{
@@ -223,22 +226,31 @@ int erase()
 		
 		printf("Erase ACK'ed\n");
 		
-		uint16_t pages = 1;
-		// uint16_t pages = 16;
-		//
-		uint8_t data[1000];
-		data[0] = pages >> 8;
-		data[1] = pages & 0xff;
-		for (uint16_t i = 0; i <= pages; i++)
+		if (excludedPages.size() == 0)
 		{
-			data[2 + i * 2] = i >> 8;
-			data[2 + i * 2 + 1] = i & 0xff;
+			uart_write_data_checksum("\xff\xff", 2);
 		}
-		
-		uart_write_data_checksum("\xff\xff", 2);
-		// uart_write_data_checksum (data, 2 + pages * 2 + 2);
-		
-		// usleep(1000000);
+		else
+		{
+			int maxPages = 128;
+			uint16_t pages = maxPages - 1 - excludedPages.size();
+			
+			uint8_t data[2 + (pages + 1) * 2];
+			data[0] = pages >> 8;
+			data[1] = pages & 0xff;
+			int idx = 1;
+			for (uint16_t i = 0; i < maxPages; i++)
+			{
+				if (find(excludedPages.begin(), excludedPages.end(), i) != excludedPages.end())
+				{
+					data[2 + idx * 2] = i >> 8;
+					data[2 + idx * 2 + 1] = i & 0xff;
+					idx++;
+				}
+			}
+			
+			uart_write_data_checksum(data, sizeof(data));
+		}
 		
 		res = uart_read_ack_nack();
 		if (res != ACK)
@@ -259,8 +271,32 @@ int erase()
 		int res = uart_read_ack_nack();
 		if (res == ACK)
 		{
-			uart_send_cmd(0xff);
+			if (excludedPages.size() == 0)
+			{
+				uart_send_cmd(0xff);
+			}
+			else
+			{
+				int maxPages = 128;
+				uint16_t pages = maxPages - 1 - excludedPages.size();
+				
+				uint8_t data[1 + pages + 1];
+				int idx = 1;
+				data[0] = pages;
+				for (uint16_t i = 0; i < maxPages; i++)
+					if (find(excludedPages.begin(), excludedPages.end(), i) == excludedPages.end())
+						data[idx++] = i;
+						
+				uart_write_data_checksum(data, sizeof(data));
+			}
+			
+retry:
 			res = uart_read_ack_nack();
+			printf("res: 0x%x\n", res);
+			if (res != ACK && res != NACK)
+			{
+				goto retry;
+			}
 			if (res == NACK)
 			{
 				printf("device NACKed\n");
