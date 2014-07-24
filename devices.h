@@ -11,6 +11,7 @@ enum ECmd
 
 class stm32_dev_t
 {
+public:
 	uint16_t id;
 	uint8_t version, option1, option2, bootVersion;
 	uint8_t cmds[11];
