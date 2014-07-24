@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "proto.h"
 #include "uart.h"
@@ -18,6 +19,13 @@ uint32_t firmwareLen;
 
 // device info
 stm32_dev_t dev;
+
+int doTest = 0;
+int doErase = 0;
+int doFlash = 0;
+
+const char* devicePath = "/dev/ttyUSB0";
+int speed = B115200;
 
 uint32_t getTicks()
 {
@@ -154,47 +162,91 @@ int run(uint32_t addr)
 
 int main(int argc, char** argv)
 {
-	bool testOnly = 0;
-	
-	if (argc < 4)
+
+	static struct option long_options[] =
 	{
-		printf("usage: %s port speed test|bin_file\n", argv[0]);
-		return 1;
+		/* These options set a flag. */
+		{ "test",  no_argument,       &doTest,  1 },
+		{ "erase", no_argument,       &doErase, 1 },
+		{ "flash", no_argument,       &doFlash, 1 },
+		
+		{ "device", required_argument, 0, 'd' },
+		{ "speed",  required_argument, 0, 's' },
+		{ 0, 0, 0, 0 }
+	};
+	
+	for (;;)
+	{
+		int option_index = 0;
+		int c = getopt_long(argc, argv, "tefd:s:", long_options, &option_index);
+		if (c == -1)
+			break;
+			
+		switch (c)
+		{
+		case 't':
+			doTest = 1;
+			break;
+		case 'e':
+			doErase = 1;
+			break;
+		case 'f':
+			doFlash = 1;
+			break;
+		case 'd':
+			devicePath = optarg;
+			break;
+		case 's':
+			speed = getSpeedByBaud(atoi(optarg));
+			if (speed == 0)
+			{
+				printf("unsupported speed\n");
+				return 1;
+			}
+			break;
+		}
 	}
 	
-	if (strcmp(argv[3], "test") == 0)
+	const char* filePath = 0;
+	if (optind < argc)
+		filePath = argv[optind];
+		
+	if (!doTest && !doErase && !doFlash)
 	{
-		testOnly = 1;
-	}
-	else
-	{
-		FILE *file = fopen(argv[3], "rb");
-		firmwareLen = fread(firmwareData, 1, sizeof(firmwareData), file);
-		fclose(file);
-	}
-	
-	while ((firmwareLen % 4) != 0)
-	{
-		firmwareData[firmwareLen] = 0xff;
-		firmwareLen++;
+		printf("no command specified, assuming erase and flash\n");
+		doErase = doFlash = 1;
 	}
 	
-	int speed = 0;
-	if (strcmp(argv[2], "230400") == 0) speed = B230400;
-	else if (strcmp(argv[2], "115200") == 0) speed = B115200;
-	else if (strcmp(argv[2], "460800") == 0) speed = B460800;
-	else if (strcmp(argv[2], "500000") == 0) speed = B500000;
-	else if (strcmp(argv[2], "1000000") == 0) speed = B1000000;
-	else if (strcmp(argv[2], "1500000") == 0) speed = B1500000;
+	if (doFlash)
+	{
+		if (filePath)
+		{
+			FILE *file = fopen(argv[3], "rb");
+			firmwareLen = fread(firmwareData, 1, sizeof(firmwareData), file);
+			fclose(file);
+			
+			while ((firmwareLen % 4) != 0)
+			{
+				firmwareData[firmwareLen] = 0xff;
+				firmwareLen++;
+			}
+		}
+		else
+		{
+			printf("bin file path must be provided\n");
+			return 1;
+		}
+	}
 	
 	for (;;)
 	{
 		if (handle != -1)
 			uart_close(handle);
-		handle = uart_open(argv[1], speed);
+		printf("opening device %s...\n", devicePath);
+		handle = uart_open(devicePath, speed);
 		if (handle == -1)
 		{
-			perror("unable to open");
+			perror("unable to open device");
 			return 1;
 		}
 		int res;
@@ -202,26 +254,32 @@ int main(int argc, char** argv)
 		res = start();
 		if (res == 0)
 		{
-			if (testOnly)
+			if (doTest)
 				break;
 				
-			res = erase();
-			if (res == 0)
+			res = 0;
+			if (doErase)
+				res = erase();
+				
+			if (res == 0 && doFlash)
 			{
 				res = programm();
 				if (res == 0)
 				{
 					res = run(0x08000000);
 					if (res == 0)
-					{
 						break;
-					}
 				}
 			}
 		}
 		usleep(100 * 1000);
 	}
 	
+	if (handle != -1)
+		uart_close(handle);
+		
 	return 0;
 }
+
+
 
