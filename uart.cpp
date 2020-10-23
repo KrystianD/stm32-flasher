@@ -30,7 +30,7 @@ SerialHandle uart_open (const char* path, int speed)
 	options.c_iflag &= ~(INPCK | IXON | IXOFF | IXANY | ICRNL);
 	options.c_oflag &= ~(OPOST | ONLCR);
 
-	for (uint i = 0; i < sizeof (options.c_cc); i++)
+	for (unsigned int i = 0; i < sizeof (options.c_cc); i++)
 		options.c_cc[i] = _POSIX_VDISABLE;
 
 	options.c_cc[VTIME] = 0;
