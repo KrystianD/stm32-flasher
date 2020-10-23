@@ -249,7 +249,7 @@ int erase(const vector<int>& excludedPages)
 				}
 			}
 			
-			uart_write_data_checksum(data, sizeof(data));
+			uart_write_data_checksum((char*)data, sizeof(data));
 		}
 		
 		res = uart_read_ack_nack();
@@ -287,7 +287,7 @@ int erase(const vector<int>& excludedPages)
 					if (find(excludedPages.begin(), excludedPages.end(), i) == excludedPages.end())
 						data[idx++] = i;
 						
-				uart_write_data_checksum(data, sizeof(data));
+				uart_write_data_checksum((char*)data, sizeof(data));
 			}
 			
 retry:

@@ -6,7 +6,7 @@ SerialHandle handle = -1;
 
 int uart_send_cmd(uint8_t cmd)
 {
-	char buf[] = { cmd, ~cmd };
+	char buf[] = { (char)cmd, (char)~cmd };
 	return uart_tx(handle, buf, 2);
 }
 
